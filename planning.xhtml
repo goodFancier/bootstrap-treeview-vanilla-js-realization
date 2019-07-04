@@ -1,0 +1,506 @@
+<ui:composition xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:ui="http://java.sun.com/jsf/facelets"
+	xmlns:f="http://java.sun.com/jsf/core"
+	xmlns:c="http://java.sun.com/jsp/jstl/core"
+	xmlns:h="http://java.sun.com/jsf/html"
+	xmlns:p="http://primefaces.org/ui"
+	xmlns:pt="http://xmlns.jcp.org/jsf/passthrough"
+	xmlns:b="http://bootsfaces.net/ui"
+	xmlns:sh="http://edicult.com/shopper"
+	template="/templates/explorer.xhtml">
+
+	<ui:param name="formCaption" value="Планирование" />
+	<ui:param name="formId" value="planning" />
+	<ui:param name="pageIcon" value="/resources/svg/header/indicators.svg" />
+	<h:outputStylesheet name="/bootstrap-treeview.css" library="css" />
+
+	<ui:define name="head">
+		<script>
+			var requestContextPath = '${request.contextPath}';
+		</script>
+		<script>
+			var retailerID = '#{PlanForecastController.retailer.recID}';
+		</script>
+		<script src="#{request.contextPath}/resources/js/analyticsTree.js" />
+		<script src="#{request.contextPath}/resources/js/shopTree.js" />
+	</ui:define>
+
+	<f:metadata>
+		<ui:include src="/metadata/checkSession.xhtml" />
+	</f:metadata>
+
+	<ui:define name="body.form.content">
+		<b:container styleClass="pageContainer">
+			<p:importEnum type="Shopper.Enum.PlanForecastEnum.PlanForecastMetric"
+				var="planForecastMetricEnum"
+				allSuffix="planForecastMetricEnumValues" />
+			<p:importEnum type="Shopper.Enum.PlanForecastEnum.PlanForecastType"
+				var="planForecastTypeEnum" allSuffix="planForecastTypeEnumValues" />
+			<p:importEnum
+				type="Shopper.Enum.PlanForecastEnum.PlanForecastTimePeriodEnum"
+				var="planForecastTimePeriodEnum"
+				allSuffix="planForecastTimePeriodEnumValues" />
+			<p:remoteCommand name="updateTableCommand" oncomplete="redrawChart()"
+				update="planValues planValuesChart" />
+
+			<sh:planningToolbarBtnList id="planningToolbar"
+				controller="#{PlanForecastController}" />
+			<b:row>
+				<b:column id="treeViewColumn" col-lg="4" col-md="4" col-sm="4"
+					styleClass="bootPanelRow">
+
+					<b:row styleClass="bootPanelRow">
+						<b:column styleClass="bootPanelInputPadding">
+							<h:outputText value="Торговая сеть" styleClass="titleInputText" />
+						</b:column>
+						<b:column styleClass="bootColumn">
+							<sh:retailerAutoComplete id="retailerAC" update="planValues"
+								binding="#{retailerACBinding}"
+								value="#{PlanForecastController.retailer}"
+								onCompleteUpdate="updatePlanList(#{PlanForecastController.retailer.recID})" />
+						</b:column>
+					</b:row>
+
+					<b:column styleClass="bootPanelRow">
+						<h:outputText value="Планы" styleClass="titleInputText" />
+					</b:column>
+
+					<b:column id="dateTreeColumn" styleClass="bootPanelRow">
+						<div id="timeTree" class="treeView">
+							<div class="col-sm-12" style="padding: 0 !Important">
+								<label for="treeview"></label>
+								<div id="treeview" />
+							</div>
+						</div>
+					</b:column>
+
+					<b:column styleClass="bootPanelRow">
+						<div class="treeView">
+							<div class="col-sm-12" style="padding: 0 !Important">
+								<label for="shopTreeview"></label>
+								<div id="shopTreeview" />
+							</div>
+						</div>
+					</b:column>
+				</b:column>
+
+				<b:column id="planValuesChartColumn" col-lg="8" col-md="8"
+					col-sm="8" styleClass="bootPanelRow">
+					<b:row>
+						<b:column col-lg="2" col-md="2" col-sm="4">
+							<b:column styleClass="bootPanelInputPadding">
+								<h:outputText value="Детализация" styleClass="titleInputText" />
+							</b:column>
+							<b:column styleClass="bootPanelInputPadding">
+								<p:selectOneMenu
+									value="#{PlanForecastController.detailingObjects}"
+									styleClass="auditory-type-select">
+									<p:ajax event="itemSelect" oncomplete="redrawChart()"
+										update=":#{p:component('planValuesChartColumn')}" />
+									<f:selectItems
+										value="#{PlanForecastController.allDetailingObjects}"
+										var="detailingValue" itemLabel="#{detailingValue.title}"
+										itemValue="#{detailingValue}" />
+								</p:selectOneMenu>
+							</b:column>
+						</b:column>
+						<b:column col-lg="2" col-md="2" col-sm="4">
+							<b:column styleClass="bootPanelInputPadding">
+								<h:outputText value="Метрика" styleClass="titleInputText" />
+							</b:column>
+							<b:column styleClass="bootPanelInputPadding">
+								<p:selectOneMenu id="metric" styleClass="auditory-type-select"
+									value="#{PlanForecastController.chartFilterMetric}"
+									converter="FilterPlanMetricConverter" effect="fade"
+									var="metric">
+									<p:ajax event="itemSelect" oncomplete="redrawChart()"
+										update=":#{p:component('planValuesChartColumn')}" />
+									<f:selectItems
+										value="#{planForecastMetricEnum.planForecastMetricEnumValues}"
+										var="metricValue" itemLabel="#{metricValue.title}"
+										itemValue="#{metricValue}" />
+									<p:column>
+										<h:outputText value="#{metric.title}"
+											styleClass="bootPanelInputText" />
+									</p:column>
+								</p:selectOneMenu>
+							</b:column>
+						</b:column>
+						<b:column col-lg="2" col-md="2" col-sm="4">
+							<b:column styleClass="bootPanelInputPadding">
+								<h:outputText value="Временной интервал"
+									styleClass="titleInputText" />
+							</b:column>
+							<b:column styleClass="bootPanelInputPadding">
+								<p:selectOneMenu id="timePeriod"
+									styleClass="auditory-type-select"
+									value="#{PlanForecastController.chartFilterTimePeriod}"
+									converter="FilterPlanTimePeriodConverter" effect="fade"
+									var="timePeriod">
+									<p:ajax event="itemSelect" oncomplete="redrawChart()"
+										update=":#{p:component('planValuesChartColumn')}" />
+									<f:selectItems
+										value="#{planForecastTimePeriodEnum.planForecastTimePeriodEnumValues}"
+										var="timePeriodValue" itemLabel="#{timePeriodValue.title}"
+										itemValue="#{timePeriodValue}" />
+									<p:column>
+										<h:outputText value="#{timePeriod.title}"
+											styleClass="bootPanelInputText" />
+									</p:column>
+								</p:selectOneMenu>
+							</b:column>
+						</b:column>
+					</b:row>
+					<b:column styleClass="bootPanelInputPadding">
+						<b:panel collapsible="false" styleClass="planningChartPanel">
+							<f:facet name="heading">
+								<h:outputText value="График плановых значений"
+									styleClass="titleInputText" />
+							</f:facet>
+							<p:chart id="planValuesChart" type="line"
+								model="#{PlanForecastController.planValuesChartModel}"
+								widgetVar="planValuesChartWV"
+								styleClass="indicators remove-ticks">
+							</p:chart>
+						</b:panel>
+					</b:column>
+					<b:column styleClass="bootPanelInputPadding">
+						<p:toolbar id="tableToolbar" binding="#{tableToolbarBinding}"
+							style="padding-bottom:0 !important">
+							<f:facet name="left">
+								<p:commandButton value="Пересчитать"
+									oncomplete="updatePlanList(#{PlanForecastController.retailer.recID})"
+									disabled="#{PlanForecastController.isDeleteButtonDisabled}"
+									action="#{PlanForecastController.deleteEntity}"
+									update="planValues" styleClass="top-toolbar-2nd-element">
+									<p:confirm header="Удаление"
+										message="Вы уверены, что желаете удалить выбранный план? Все плановые значения для этого плана будут удалены" />
+								</p:commandButton>
+								<p:confirmDialog global="true" showEffect="fade"
+									hideEffect="fade">
+									<p:panel style="text-align: center; height: 40px;">
+										<p:commandButton value="Да" type="button"
+											styleClass="ui-confirmdialog-yes"
+											icon="fa fa-button-icon fa-check" />
+										<p:commandButton value="Нет" type="button"
+											styleClass="ui-confirmdialog-no"
+											icon="fa fa-button-icon fa-close" />
+									</p:panel>
+								</p:confirmDialog>
+							</f:facet>
+						</p:toolbar>
+					</b:column>
+					<b:column>
+						<p:dataTable id="planValues" widgetVar="planValuesWV"
+							binding="#{planValuesBinding}" var="entity"
+							value="#{PlanForecastController.planValues}"
+							rowKey="#{entity.recID}" paginator="true" rows="10"
+							resizeMode="expand" lazy="true"
+							currentPageReportTemplate="Записи {startRecord}-{endRecord}/{totalRecords}, страница {currentPage}/{totalPages}"
+							paginatorTemplate="{CurrentPageReport} {FirstPageLink} {PreviousPageLink} {PageLinks} {NextPageLink} {LastPageLink} {RowsPerPageDropdown} {Exporters}"
+							selectionMode="multiple" paginatorPosition="bottom"
+							resizableColumns="true" draggableColumns="true"
+							dblClickSelect="true" rowsPerPageTemplate="5,10,25,50,100"
+							style="max-width: 92vw !important" editable="true"
+							editMode="cell">
+							<f:facet name="header">
+        						Значения плана 
+    						</f:facet>
+							<p:ajax event="page"
+								listener="#{PlanForecastController.onPageChange}" />
+							<p:ajax event="filter"
+								listener="#{PlanForecastController.filterListener}" />
+							<p:ajax event="rowSelect"
+								listener="#{PlanForecastController.selectEntity}"
+								update=":#{tableToolbarBinding.clientId}" />
+							<p:ajax event="rowUnselect"
+								update=":#{tableToolbarBinding.clientId}" />
+
+							<f:facet name="{Exporters}">
+								<div class="exports-to-file">
+									<div class="export-file-to-xls">
+										<p:commandButton icon="icon-xls-format" styleClass="icon-xls"
+											ajax="false">
+											<p:dataExporter type="XLS" target="planValues"
+												fileName="xls-planValues-list" pageOnly="true" />
+										</p:commandButton>
+									</div>
+
+									<div class="export-file-to-xls">
+										<p:commandButton icon="icon-xml-format" styleClass="icon-xls"
+											ajax="false">
+											<p:dataExporter type="XML" target="planValues"
+												fileName="xml-planValues-list" pageOnly="true" />
+										</p:commandButton>
+									</div>
+								</div>
+							</f:facet>
+
+							<p:column headerText="#" styleClass="listform_coulmn_recid"
+								filterBy="#{entity.recID}" sortBy="#{entity.recID}">
+								<f:facet name="filter">
+									<p:inputText onkeyup="PF('planValuesWV').filter()">
+										<p:keyFilter mask="pint" />
+									</p:inputText>
+								</f:facet>
+								<h:outputText value="#{entity.recID}" />
+							</p:column>
+							<p:column headerText="Значение" style="width: 170px;"
+								filterBy="#{entity.value}" sortBy="#{entity.value}"
+								id="columnValue">
+								<f:facet name="filter">
+									<p:inputText onkeyup="PF('planValuesWV').filter()" />
+								</f:facet>
+								<p:cellEditor>
+									<f:facet name="output">
+										<h:outputText value="#{entity.value}" />
+									</f:facet>
+									<f:facet name="input">
+										<p:inputText value="#{PlanForecastController.planValue}"
+											style="width:96%" label="Значение"
+											styleClass="competitor-market-name">
+											<p:keyFilter mask="pint" />
+											<p:ajax immediate="true"
+												update=":#{p:component('planValuesChartColumn')}"
+												oncomplete="redrawChart()" event="change"
+												listener="#{PlanForecastController.setValue(PlanForecastController.planValue, entity.recID)}" />
+										</p:inputText>
+									</f:facet>
+								</p:cellEditor>
+							</p:column>
+							<p:column headerText="Дата" style="width:100px"
+								filterBy="#{entity.date}" sortBy="#{entity.date}"
+								id="columnDate">
+
+								<f:facet name="filter">
+									<p:calendar pattern="#{Globals.currentDateFormat}" mask="true"
+										placeholder="__.__.____" locale="#{Globals.currentLocale}"
+										autocomplete="false" timeZone="#{Globals.currentTimeZone}"
+										navigator="true" readonlyInput="false" showButtonPanel="true"
+										showOtherMonths="true" selectOtherMonths="true"
+										yearRange="c-50:c+50">
+										<p:ajax event="dateSelect"
+											oncomplete="PF('planValuesWV').filter()"
+											update=":#{planValuesBinding.clientId}" />
+										<p:ajax event="change" execute="@this"
+											oncomplete="PF('planValuesWV').filter()"
+											update=":#{planValuesBinding.clientId}" />
+									</p:calendar>
+								</f:facet>
+								<p:cellEditor>
+									<f:facet name="output">
+										<h:outputText value="#{entity.date}">
+											<f:convertDateTime type="date"
+												pattern="#{Globals.currentDatetimeFormat}"
+												locale="#{Globals.currentLocale}"
+												timeZone="#{Globals.currentTimeZone}" />
+										</h:outputText>
+									</f:facet>
+									<f:facet name="input">
+										<p:calendar value="#{PlanForecastController.planValueDate}"
+											autocomplete="false" placeholder="__.__.____"
+											pattern="#{Globals.currentDatetimeFormat}"
+											locale="#{Globals.currentLocale}" navigator="true"
+											showButtonPanel="true" showOtherMonths="true"
+											selectOtherMonths="true" yearRange="c-50:c+50" size="17"
+											timeZone="#{Globals.currentTimeZone}">
+											<p:ajax
+												update=":#{p:component('dateTreeColumn')} :#{p:component('planValuesChartColumn')}"
+												oncomplete="updateTreeView()" event="change"
+												listener="#{PlanForecastController.setValueDate(PlanForecastController.planValueDate, entity.recID)}" />
+										</p:calendar>
+									</f:facet>
+								</p:cellEditor>
+							</p:column>
+							<p:column headerText="Метрика" style="width: 85px; min-width: 0;"
+								filterBy="#{entity.metric}" sortBy="#{entity.metric}"
+								id="columnMetric">
+
+								<f:facet name="filter">
+									<p:selectOneMenu onchange="PF('planValuesWV').filter()"
+										converter="FilterPlanMetricConverter"
+										style="width: calc(100% - 4px);">
+										<f:selectItem itemLabel="" itemValue="#{null}"
+											noSelectionOption="true" />
+										<f:selectItems
+											value="#{planForecastMetricEnum.planForecastMetricEnumValues}" />
+									</p:selectOneMenu>
+								</f:facet>
+								<p:cellEditor>
+									<f:facet name="output">
+										<h:outputText value="#{entity.metric.getTitle()}" />
+									</f:facet>
+									<f:facet name="input">
+										<p:selectOneMenu value="#{PlanForecastController.planMetric}"
+											styleClass="auditory-type-select">
+											<p:ajax event="itemSelect" oncomplete="redrawChart()"
+												listener="#{PlanForecastController.setMetricValue(PlanForecastController.planMetric, entity.recID)}"
+												update=":#{p:component('planValuesChartColumn')}" />
+											<f:selectItems
+												value="#{planForecastMetricEnum.planForecastMetricEnumValues}"
+												var="metricValue" itemLabel="#{metricValue.title}"
+												itemValue="#{metricValue}" />
+										</p:selectOneMenu>
+									</f:facet>
+								</p:cellEditor>
+							</p:column>
+							<p:column headerText="Тип" style="width: 85px; min-width: 0;"
+								filterBy="#{entity.type}" sortBy="#{entity.type}"
+								id="columnType">
+
+								<f:facet name="filter">
+									<p:selectOneMenu onchange="PF('planValuesWV').filter()"
+										converter="FilterPlanTypeConverter"
+										style="width: calc(100% - 4px);">
+										<f:selectItem itemLabel="" itemValue="#{null}"
+											noSelectionOption="true" />
+										<f:selectItems
+											value="#{planForecastTypeEnum.planForecastTypeEnumValues}" />
+									</p:selectOneMenu>
+								</f:facet>
+
+								<h:outputText value="#{entity.type.getTitle()}" />
+							</p:column>
+							<p:column headerText="Временной интервал"
+								style="width: 85px; min-width: 0;"
+								filterBy="#{entity.timePeriod}" sortBy="#{entity.timePeriod}"
+								id="columnTimePeriod">
+
+								<f:facet name="filter">
+									<p:selectOneMenu onchange="PF('planValuesWV').filter()"
+										converter="FilterPlanTimePeriodConverter"
+										style="width: calc(100% - 4px);">
+										<f:selectItem itemLabel="" itemValue="#{null}"
+											noSelectionOption="true" />
+										<f:selectItems
+											value="#{planForecastTimePeriodEnum.planForecastTimePeriodEnumValues}" />
+									</p:selectOneMenu>
+								</f:facet>
+								<p:cellEditor>
+									<f:facet name="output">
+										<h:outputText value="#{entity.timePeriod.getTitle()}" />
+									</f:facet>
+									<f:facet name="input">
+										<p:selectOneMenu
+											value="#{PlanForecastController.planTimePeriod}"
+											styleClass="auditory-type-select">
+											<p:ajax event="itemSelect" oncomplete="redrawChart()"
+												listener="#{PlanForecastController.setTimePeriod(PlanForecastController.planTimePeriod, entity.recID)}"
+												update=":#{p:component('planValuesChartColumn')}" />
+											<f:selectItems
+												value="#{planForecastTimePeriodEnum.planForecastTimePeriodEnumValues}"
+												var="timePeriodValue" itemLabel="#{timePeriodValue.title}"
+												itemValue="#{timePeriodValue}" />
+										</p:selectOneMenu>
+									</f:facet>
+								</p:cellEditor>
+							</p:column>
+							<p:column headerText="Торговая сеть"
+								styleClass="listform_coulmn_retailer"
+								filterBy="#{entity.retailer}" sortBy="#{entity.retailer}">
+								<f:facet name="filter">
+									<p:selectCheckboxMenu onchange="PF('planValuesWV').filter()"
+										label=" " filter="true" converter="retailerConverter"
+										scrollHeight="150"
+										panelStyleClass="without-selectall selectRetailerContainer selectRetailer"
+										updateLabel="true" multiple="true">
+										<f:selectItems value="#{RetailerListController.getAll()}"
+											var="retailer" itemLabel="#{retailer.name}"
+											itemValue="#{retailer}" />
+									</p:selectCheckboxMenu>
+								</f:facet>
+								<h:outputText value="#{entity.retailer.name}" />
+							</p:column>
+							<p:column headerText="Магазин" id="columnShop"
+								styleClass="listform_coulmn_shop" filterBy="#{entity.shop}"
+								sortBy="#{entity.shop}">
+								<f:facet name="filter">
+									<p:selectCheckboxMenu onchange="PF('planValuesWV').filter()"
+										label=" " filter="true" converter="shopConverter"
+										scrollHeight="150"
+										panelStyleClass="without-selectall selectShopContainer selectShop"
+										updateLabel="true" multiple="true">
+										<f:selectItems value="#{ShopListController.getAll()}"
+											var="item" itemLabel="#{item.name}" itemValue="#{item}" />
+									</p:selectCheckboxMenu>
+								</f:facet>
+								<p:cellEditor>
+									<f:facet name="output">
+										<h:outputText value="#{entity.shop.name}" />
+									</f:facet>
+									<f:facet name="input">
+										<p:selectOneMenu value="#{PlanForecastController.planShop}" converter="shopConverter"
+											styleClass="auditory-type-select">
+											<p:ajax event="itemSelect" oncomplete="redrawChart()"
+												listener="#{PlanForecastController.setShopValue(PlanForecastController.planShop, entity.recID)}"
+												update=":#{p:component('planValuesChartColumn')}" />
+											<f:selectItems value="#{ShopListController.getAll()}"
+												var="shop" itemLabel="#{shop.name}" itemValue="#{shop}" />
+										</p:selectOneMenu>
+									</f:facet>
+								</p:cellEditor>
+							</p:column>
+							<p:column headerText="Торговая марка" id="brand"
+								styleClass="listform_coulmn_shop" filterBy="#{entity.brand}"
+								sortBy="#{entity.brand}">
+								<f:facet name="filter">
+									<p:selectCheckboxMenu onchange="PF('planValuesWV').filter()"
+										label=" " filter="true" converter="brandConverter"
+										scrollHeight="150"
+										panelStyleClass="without-selectall selectShopContainer selectShop"
+										updateLabel="true" multiple="true">
+										<f:selectItems value="#{BrandListController.getAll()}"
+											var="item" itemLabel="#{item.name}" itemValue="#{item}" />
+									</p:selectCheckboxMenu>
+								</f:facet>
+								<p:cellEditor>
+									<f:facet name="output">
+										<h:outputText value="#{entity.brand.name}" />
+									</f:facet>
+									<f:facet name="input">
+										<p:selectOneMenu value="#{PlanForecastController.planBrand}" converter="brandConverter"
+											styleClass="auditory-type-select">
+											<p:ajax event="itemSelect" oncomplete="redrawChart()"
+												listener="#{PlanForecastController.setBrandValue(PlanForecastController.planBrand, entity.recID)}"
+												update=":#{p:component('planValuesChartColumn')}" />
+											<f:selectItems value="#{BrandListController.getAll()}"
+												var="brand" itemLabel="#{brand.name}" itemValue="#{brand}" />
+										</p:selectOneMenu>
+									</f:facet>
+								</p:cellEditor>
+							</p:column>
+							<p:column id="trash" styleClass="competitor-table-trash-column"
+								style="width:4%">
+								<f:facet name="header">
+									<p:outputLabel id="trasher" styleClass="competitor-table-trash">
+										<i class="fa fa-trash ui-fa-icon f7a-button-icon"
+											style="margin-right: 40%"></i>
+									</p:outputLabel>
+									<p:tooltip id="toolTipTrasher" for="trasher"
+										value="Удалить плановое значение" position="top" />
+								</f:facet>
+								<p:commandButton icon="ui-icon-trash" styleClass="trash"
+									actionListener="#{PlanForecastController.removePlanValue(entity.recID)}"
+									oncomplete="redrawChart()"
+									update="planValues :#{p:component('planValuesChartColumn')}"
+									process="@this" immediate="true" />
+							</p:column>
+							<f:facet name="footer">
+								<p:commandButton value="+" immediate="true"
+									styleClass="form-datatable-add" update="planValues"
+									actionListener="#{PlanForecastController.addPlanValue()}"
+									oncomplete="paginatorBeforeAction();" />
+							</f:facet>
+						</p:dataTable>
+					</b:column>
+				</b:column>
+			</b:row>
+
+		</b:container>
+
+		<script
+			src="#{request.contextPath}/resources/js/bootstrap-treeview.js" />
+		<ui:include src="/templates/jPlotScripts.xhtml" />
+	</ui:define>
+</ui:composition>
+
